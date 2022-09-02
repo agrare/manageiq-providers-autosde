@@ -1,23 +1,28 @@
 class ManageIQ::Providers::Autosde::StorageManager::EmsRefreshWorkflow < ManageIQ::Providers::EmsRefreshWorkflow
-
   def run_native_op
-    # a step before the refresh, can be overwritten by a subclass
-    signal(:abort, "Task failed")
     queue_signal(:poll_native_task)
   end
+  alias start run_native_op
 
   def poll_native_task
-    status = job.options[:ems].autosde_client.JobApi.jobs_pk_get(task_id).status
-    if status == "FAILURE"
+    case autosde_client.JobApi.jobs_pk_get(options[:native_task_id]).status
+    when "FAILURE"
       signal(:abort, "Task failed")
-    elsif status == "SUCCESS"
+    when "SUCCESS"
       queue_signal(:refresh)
-      #else
-      #queue_signal(:poll_native_task)
+    else
+      queue_signal(:poll_native_task, :deliver_on => Time.now.utc + 1.minute)
     end
   rescue => err
     _log.log_backtrace(err)
     signal(:abort, err.message, "error ADRIAN")
   end
 
+  def autosde_client
+    @autosde_client ||= ext_management_system.autosde_client
+  end
+
+  def ext_management_system
+    @ext_management_system ||= ExtManagementSystem.find(options[:ems_id])
+  end
 end

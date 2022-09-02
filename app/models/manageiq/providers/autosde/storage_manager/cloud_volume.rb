@@ -33,10 +33,16 @@ class ManageIQ::Providers::Autosde::StorageManager::CloudVolume < ::CloudVolume
   # ================= delete  ================
 
   def raw_delete_volume
-    ems = ext_management_system
-    task_id = ems.autosde_client.VolumeApi.volumes_pk_delete(ems_ref)
-    # ManageIQ::Providers::Autosde::StorageManager::AutosdeClient.enqueue_refresh(
-    #   self.class.name, self.id, task_id, ems, "delete", "volume")
+    task_id = ext_management_system.autosde_client.VolumeApi.volumes_pk_delete(ems_ref)
+
+    ext_management_system.class::EmsRefreshWorkflow.create_job(
+      :target_class   => self.class.name,
+      :target_id      => id,
+      :ems_id         => ext_management_system.id,
+      :native_task_id => task_id
+    ).tap do |job|
+      job.signal(:start)
+    end
   end
 
   # ================= edit  ================
@@ -46,11 +52,17 @@ class ManageIQ::Providers::Autosde::StorageManager::CloudVolume < ::CloudVolume
       :name => options[:name],
       :size => options[:size_GB]
     )
-    ems = ext_management_system
-    #task_id = ems.autosde_client.VolumeApi.volumes_pk_put(ems_ref, update_details)
-    ManageIQ::Providers::Autosde::StorageManager::AutosdeClient.enqueue_refresh_workflow(
-      ems.autosde_client.VolumeApi.method(:volumes_pk_put), ems_ref, update_details,
-      self.class.name, self.id, ems, "update", "volume")
+
+    task_id = ext_management_system.autosde_client.VolumeApi.volumes_pk_put(ems_ref, update_details)
+
+    ext_management_system.class::EmsRefreshWorkflow.create_job(
+      :target_class   => self.class.name,
+      :target_id      => id,
+      :ems_id         => ext_management_system.id,
+      :native_task_id => task_id
+    ).tap do |job|
+      job.signal(:start)
+    end
   end
 
   # ================ safe-delete ================

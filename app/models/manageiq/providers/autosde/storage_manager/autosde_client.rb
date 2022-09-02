@@ -96,30 +96,4 @@ class ManageIQ::Providers::Autosde::StorageManager::AutosdeClient < AutosdeOpena
       # when set to nil, url refers to config.host, as it should be
     end
   end
-
-  def self.enqueue_refresh_workflow(client_method, ems_ref, args,
-                                    object_class, object_id, ems, action, object_class_name)
-    options = {
-      :name             => "#{action} of #{object_class_name}",
-      :target_class     => object_class,
-      :target_id        => object_id,
-      :task_id          => nil,
-      :ems              => ems,
-      :client_method    => client_method,
-      :ems_ref          => ems_ref,
-      :args             => args
-    }
-    #client_method.call(ems_ref, args) #args if it's update
-    require 'byebug'
-    byebug
-    begin
-      ManageIQ::Providers::Autosde::StorageManager::EmsRefreshWorkflow.create_job(options).tap do |job|
-        job.signal(:start)
-      end
-    rescue => err
-      _log.log_backtrace(err)
-      puts err
-      raise
-    end
-  end
 end
